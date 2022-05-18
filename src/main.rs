@@ -1,4 +1,4 @@
-use toyml_rs::{dot, Matrix, simple_dot, transpose, transpose_dot};
+use toyml_rs::math::{dot, Matrix};
 
 fn main() {
     let m = Matrix::new(&[
@@ -11,8 +11,6 @@ fn main() {
         11., 12.,
     ], &[3, 2]);
     let out = dot(&m, &m2);
-    let out2 = transpose_dot(&m, &m2);
 
     println!("{:?}", out);
-    println!("{:?}", out2);
 }
