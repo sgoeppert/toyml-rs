@@ -1,14 +1,14 @@
 
 #[derive(Debug, Clone)]
 struct Dim {
-    shape: Vec<usize>
+    shape: [usize; 2],
 }
 
 impl Dim {
-    fn new(shape: &[usize]) -> Self {
+    fn new(shape: &[usize; 2]) -> Self {
         assert!(shape.len() > 1, "The shape must have at least 2 dimensions. For a column vector use [N, 1] and for a row vector [1, N]");
         Dim {
-            shape: shape.to_vec()
+            shape: shape.clone()
         }
     }
 
@@ -20,16 +20,16 @@ impl Dim {
 #[derive(Debug)]
 struct Matrix {
     data: Vec<f64>,
-    shape: Dim
+    shape: Dim,
 }
 
 impl Matrix {
-    fn new(data: &[f64], shape: &[usize]) -> Self {
+    fn new(data: &[f64], shape: &[usize; 2]) -> Self {
         let shape = Dim::new(shape);
         assert_eq!(shape.total_elements(), data.len(), "The data does not fit the shape");
         Matrix {
             data: data.to_vec(),
-            shape
+            shape,
         }
     }
 
