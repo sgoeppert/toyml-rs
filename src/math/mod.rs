@@ -1,5 +1,5 @@
-
 use std::ops::Index;
+use crate::random::NormalDistRng;
 
 #[derive(Debug, Clone)]
 pub struct Dim {
@@ -61,8 +61,22 @@ impl Matrix {
         }
     }
 
+    pub fn random(shape: &[usize; 2]) -> Self {
+        let mut rng = NormalDistRng::new();
+        let shape = Dim::new(shape);
+        Matrix {
+            data: (0..shape.total_elements()).into_iter().map(|_c| rng.next()).collect(),
+            shape
+        }
+    }
+
     pub fn dim(&self) -> Dim {
         self.shape.clone()
+    }
+
+    pub fn randomize(&mut self) {
+        let mut rng = NormalDistRng::new();
+        self.data.iter_mut().for_each(|v| *v = rng.next())
     }
 }
 
@@ -111,6 +125,7 @@ pub fn dot(lhs: &Matrix, rhs: &Matrix) -> Matrix {
     }
 }
 
+
 /// Calculate the dot product between to matrices by first transposing the right matrix.
 ///
 /// The goal is to achieve a cache friendlier implementation for large matrices. So far it doesn't
@@ -142,41 +157,6 @@ pub fn transpose_dot(lhs: &Matrix, rhs: &Matrix) -> Matrix {
     }
 }
 
-/// Calculate the dot product using an iterator based approach.
-///
-/// Very slow and having to collect
-/// into a `Vec<Vec<f64>>` is terrible. Maybe there is a better way with a custom iterator instead
-/// of using `[T].chunks()` or `.map()`
-pub fn slow_dot(lhs: &Matrix, rhs: &Matrix) -> Matrix {
-    let new_shape = lhs.shape.dot(&rhs.shape).unwrap();
-
-    let mut out_data = Vec::with_capacity(new_shape.total_elements());
-
-    let m1_rows = lhs.data.chunks(lhs.shape[1]);
-    let m2_cols: Vec<Vec<f64>> = (0..rhs.shape[1])
-        .into_iter()
-        .map(|c| {
-            rhs.data
-                .iter()
-                .skip(c)
-                .step_by(rhs.shape[1])
-                .map(|v| *v)
-                .collect()
-        })
-        .collect();
-
-    for row in m1_rows {
-        for col in &m2_cols {
-            out_data.push(row.iter().zip(col.iter()).map(|(a, b)| a*b).sum())
-        }
-    }
-
-    Matrix {
-        data: out_data,
-        shape: new_shape,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use test::{Bencher, black_box};
@@ -184,33 +164,37 @@ mod tests {
 
     #[bench]
     fn bench_dot(b: &mut Bencher) {
-        let m = Matrix::new(&[
-            1., 2., 3.,7.,10., 20.,0.3, 0.5,
-            4., 5., 6.,7.,10., 20.,0.3, 0.5,
-            4., 5., 6.,7.,10., 20.,0.3, 0.5,
-            4., 5., 6.,7.,10., 20.,0.3, 0.5,
-            4., 5., 9.,7.,10., 11.,0.3, 0.5,
-            4., 5., 6.,7.,10., 20.,0.3, 0.5,
-        ], &[6, 8]);
-        let m2 = Matrix::new(&[
-            1., 2.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.6,
-            3., 4.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.6,
-            5., 6.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.6,
-            5., 6.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.6,
-            5., 6.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.6,
-            5., 6.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.6,
-            5., 6.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.66,
-            5., 6.,1., 2.,5., 6.,1., 2.,0.1, 0.3, 0.66,
-        ], &[8, 11]);
+        let m1 = Matrix::random(&[100, 100]);
+        let m2 = Matrix::random(&[100, 100]);
 
-        let bb_m = black_box(&m);
+        let bb_m = black_box(&m1);
         let bb_m2 = black_box(&m2);
 
         b.iter(|| {
-            for _ in 1..100 {
-                dot(&bb_m, &bb_m2);
-            }
+            dot(&bb_m, &bb_m2);
         })
     }
 
+    #[bench]
+    fn bench_transpose_dot(b: &mut Bencher) {
+        let m1 = Matrix::random(&[100, 100]);
+        let m2 = Matrix::random(&[100, 100]);
+
+        let bb_m = black_box(&m1);
+        let bb_m2 = black_box(&m2);
+
+        b.iter(|| {
+            transpose_dot(&bb_m, &bb_m2);
+        })
+    }
+
+    #[test]
+    fn random_matrix() {
+        let mut m = Matrix::zeros(&[10, 10]);
+        m.randomize();
+        println!("{:?}", m);
+
+        let m2 = Matrix::random(&[10, 10]);
+        println!("{:?}", m2);
+    }
 }
