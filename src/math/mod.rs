@@ -1,7 +1,9 @@
 use std::ops::Index;
 use crate::random::NormalDistRng;
 
-#[derive(Debug, Clone)]
+mod arithmetic;
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Dim {
     shape: [usize; 2],
 }
