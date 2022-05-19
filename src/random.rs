@@ -8,7 +8,7 @@ pub struct Splitmix64 {
 impl Splitmix64 {
     pub fn new() -> Splitmix64 {
         Splitmix64 {
-            state: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            state: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros() as u64,
         }
     }
 
@@ -64,23 +64,66 @@ impl RngBase {
 
         result
     }
+
+    pub fn next_f64(&mut self) -> f64 {
+        let n = self.next();
+        n as f64 / u64::MAX as f64
+    }
 }
 
-#[derive(Debug)]
-pub struct Rng {
-    gen: RngBase
+pub struct NormalDistRng {
+    gen: RngBase,
+    buffer: Option<f64>,
+    mean: f64,
+    std_dev: f64,
 }
-
-impl Rng {
-    pub fn new() -> Rng {
-        Rng {
-            gen: RngBase::new()
+impl NormalDistRng {
+    pub fn new() -> Self {
+        NormalDistRng {
+            gen: RngBase::new(),
+            buffer: None,
+            mean: 0.,
+            std_dev: 1.,
+        }
+    }
+    pub fn from_mean_and_std(mean: f64, std_dev: f64) -> Self {
+        NormalDistRng {
+            gen: RngBase::new(),
+            buffer: None,
+            mean,
+            std_dev,
         }
     }
 
-    pub fn next_f64(&mut self) -> f64 {
-        let n = self.gen.next();
-        n as f64 / u64::MAX as f64
+    pub fn next(&mut self) -> f64 {
+        self.mean + self.gauss_random() * self.std_dev
+    }
+
+    pub fn gauss_random(&mut self) -> f64 {
+        match self.buffer {
+            Some(val) => {
+                self.buffer = None;
+                val
+            },
+            None => {
+                let mut u;
+                let mut v;
+                let mut r;
+
+                loop {
+                    u = self.gen.next_f64() * 2. - 1.;
+                    v = self.gen.next_f64() * 2. - 1.;
+                    r = u*u + v*v;
+
+                    if r > 0. && r < 1. {
+                        break;
+                    }
+                }
+                let c = (-2. * r.ln()/r).sqrt();
+                self.buffer = Some(c * v);
+                u * v
+            }
+        }
     }
 }
 
@@ -90,10 +133,17 @@ mod tests {
 
     #[test]
     fn next_float() {
-        let mut rng = Rng::new();
+        let mut rng = RngBase::new();
 
         let values: Vec<f64> = (0..100).into_iter().map(|_| rng.next_f64()).collect();
 
+        println!("{:?}", values);
+    }
+
+    #[test]
+    fn next_normal() {
+        let mut rng = NormalDistRng::from_mean_and_std(0., 1.);
+        let values: Vec<f64> = (0..100).into_iter().map(|_| rng.next()).collect();
         println!("{:?}", values);
     }
 }
